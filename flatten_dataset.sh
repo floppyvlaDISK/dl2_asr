@@ -1,6 +1,5 @@
 #!/bin/bash
 
-# Input path
 if [ -z $1 ]; then
     echo "missing dataset folder."
     exit 1
@@ -8,15 +7,28 @@ fi
 target_folder=$1
 target_folder_path="datasets/nested_datasets/$target_folder"
 
-subfolders=$(ls $target_folder_path)
+subfolders=("$target_folder_path"/*)
 subfolders_count=$(ls $target_folder_path | wc -l)
 subfolders_counter=1
-for subfolder in $subfolders; do
+for subfolder_path in "${subfolders[@]}"; do
+    if ! [ -d "$subfolder_path" ]; then
+        echo "excluding $subfolder_path due to -d check"
+        continue
+    fi
+    subfolder=$(basename "$subfolder_path")
+    if ! [ -z "$2" ] && [ "$subfolder" != "$2" ]; then
+        echo "excluding $subfolder due to $2"
+        continue
+    fi
+
     echo "$subfolders_counter of $subfolders_count"
     ((subfolders_counter++))
 
     audio_files=$(ls "$target_folder_path/$subfolder/wav")
     audio_files_count=$(ls "$target_folder_path/$subfolder/wav" | wc -l)
+    if [[ "$audio_files_count" -eq 0 ]]; then
+        continue
+    fi
 
     counter_start_dev=$((audio_files_count * 90 / 100))
     counter_start_dev=$(printf "%.0f" "$counter_start_dev")
@@ -27,8 +39,15 @@ for subfolder in $subfolders; do
     transcripts_file="$target_folder_path/$subfolder/etc/txt.done.data"
     declare -A transcript_hash_table
     if [[ -e "$transcripts_file" ]]; then
-        while read -r audio_path transcript; do
+        while IFS= read -r line; do
+            # Use sed to split the string at ".wav"
+            audio_path=$(echo "$line" | sed 's/\(.*\.wav\).*/\1/')
             audio_key=$(echo "${audio_path:1}" | tr '/_' '_')
+
+            transcript=$(echo "$line" | sed 's/.*\.wav\(.*\)/\1/')
+            # trim only leading whitespaces
+            transcript="${transcript#"${transcript%%[![:space:]]*}"}"
+
             transcript_hash_table["$audio_key"]="$transcript"
         done < "$transcripts_file"
     else
