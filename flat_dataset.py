@@ -59,7 +59,9 @@ class FlatDataset(datasets.GeneratorBasedBuilder):
         # The `key` is for legacy reasons (tfds) and is not important in itself, but must be unique for each example.
         with open(filepath, encoding="utf-8") as f:
             for key, row in enumerate(f):
-                audio, transcript = row.split('\t')
+                row_split = row.split('\t')
+                audio = row_split[0]
+                transcript = ' '.join(row_split[1:])
                 yield key, {
                     "audio": os.path.join(_DATA_DIR, split, audio),
                     "transcript": transcript.strip('\n')
