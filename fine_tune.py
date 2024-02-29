@@ -2,8 +2,8 @@ import torch
 import evaluate
 import sys
 
-from datasets import load_dataset, DatasetDict, Audio
-from transformers import WhisperProcessor, WhisperTokenizer, WhisperForConditionalGeneration, Seq2SeqTrainingArguments, Seq2SeqTrainer
+from datasets import load_dataset, DatasetDict
+from transformers import WhisperProcessor, WhisperForConditionalGeneration, Seq2SeqTrainingArguments, Seq2SeqTrainer
 from dataclasses import dataclass
 from typing import Any, Dict, List, Union
 from transformers.models.whisper.english_normalizer import BasicTextNormalizer
@@ -13,18 +13,27 @@ if len(sys.argv) != 2:
     print("Usage: python fine_tune.py <model_version>")
     sys.exit(1)
 
+# Set the fraction of GPU memory PyTorch can allocate
+#torch.cuda.set_per_process_memory_fraction(0.5)  # Limit to % of GPU memory
 
-_MODEL_NAME = "openai/whisper-large-v3"
+_MODEL_NAME = "openai/whisper-small"
+_MODEL_TYPE = "small"
+_DS_PERCENTILE = "0_5p"
 
-ds = load_dataset("./flat_dataset.py", trust_remote_code=True)
+ds = DatasetDict()
+ds["train"] = load_dataset("./flat_dataset.py",
+                           trust_remote_code=True,
+                           split="train[:5%]")
+ds["validation"] = load_dataset("./flat_dataset.py",
+                                trust_remote_code=True,
+                                split="validation[:5%]")
+ds["test"] = load_dataset("./flat_dataset.py",
+                          trust_remote_code=True,
+                          split="test[:5%]")
 
 processor = WhisperProcessor.from_pretrained(_MODEL_NAME,
                                              language="ukrainian",
                                              task="transcribe")
-
-# unnecessary
-#sampling_rate = processor.feature_extractor.sampling_rate
-#ds = ds.cast_column("audio", Audio(sampling_rate=sampling_rate))
 
 def prepare_dataset(example):
     audio = example["audio"]
@@ -40,15 +49,32 @@ def prepare_dataset(example):
 
 ds = ds.map(prepare_dataset,
             remove_columns=ds.column_names["train"],
-            num_proc=4)
+            load_from_cache_file=True,
+            cache_file_names={
+            "train": f"datasets/flat_map_caches/{_MODEL_TYPE}/{_DS_PERCENTILE}/train.arrow",
+            "test": f"datasets/flat_map_caches/{_MODEL_TYPE}/{_DS_PERCENTILE}/test.arrow",
+            "validation": f"datasets/flat_map_caches/{_MODEL_TYPE}/{_DS_PERCENTILE}/dev.arrow"
+            },
+            num_proc=1)
 
 
 def is_audio_in_length_range(length):
     return length < 30.0
 
 ds["train"] = ds["train"].filter(is_audio_in_length_range,
-                                 input_columns=["input_length"])
-print(ds["train"])
+                                 input_columns=["input_length"],
+                                 load_from_cache_file=True,
+                                 cache_file_name=f"datasets/flat_filter_caches/{_MODEL_TYPE}/{_DS_PERCENTILE}/train.arrow")
+
+ds["validation"] = ds["validation"].filter(is_audio_in_length_range,
+                                           input_columns=["input_length"],
+                                           load_from_cache_file=True,
+                                           cache_file_name=f"datasets/flat_filter_caches/{_MODEL_TYPE}/{_DS_PERCENTILE}/dev.arrow")
+
+ds["test"] = ds["test"].filter(is_audio_in_length_range,
+                               input_columns=["input_length"],
+                               load_from_cache_file=True,
+                               cache_file_name=f"datasets/flat_filter_caches/{_MODEL_TYPE}/{_DS_PERCENTILE}/test.arrow")
 
 
 @dataclass
@@ -139,13 +165,13 @@ model.generate = partial(model.generate,
                          use_cache=True)
 
 training_args = Seq2SeqTrainingArguments(
-    output_dir=f"ua_model_{_MODEL_NAME}_v{sys.argv[1]}",
+    output_dir=f"models/{_MODEL_TYPE}_{sys.argv[1]}",
     per_device_train_batch_size=16,
     gradient_accumulation_steps=1,  # increase by 2x for every 2x decrease in batch size
     learning_rate=1e-5,
     lr_scheduler_type="constant_with_warmup",
-    warmup_steps=500,
-    max_steps=4000,
+    warmup_steps=50,
+    max_steps=500,
     gradient_checkpointing=True,
     fp16=True,
     fp16_full_eval=True,

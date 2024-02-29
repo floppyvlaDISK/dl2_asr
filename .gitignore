@@ -1,4 +1,4 @@
 datasets
 .env
 error.log
-model_*
+models
