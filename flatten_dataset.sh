@@ -43,6 +43,9 @@ for subfolder_path in "${subfolders[@]}"; do
             # Use sed to split the string at ".wav"
             audio_path=$(echo "$line" | sed 's/\(.*\.wav\).*/\1/')
             audio_key=$(echo "${audio_path:1}" | tr '/_' '_')
+            if [ -z $audio_key ]; then
+                continue
+            fi
 
             transcript=$(echo "$line" | sed 's/.*\.wav\(.*\)/\1/')
             # trim only leading whitespaces

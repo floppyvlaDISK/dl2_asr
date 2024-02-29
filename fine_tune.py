@@ -1,5 +1,6 @@
 import torch
 import evaluate
+import sys
 
 from datasets import load_dataset, DatasetDict, Audio
 from transformers import WhisperProcessor, WhisperTokenizer, WhisperForConditionalGeneration, Seq2SeqTrainingArguments, Seq2SeqTrainer
@@ -8,32 +9,18 @@ from typing import Any, Dict, List, Union
 from transformers.models.whisper.english_normalizer import BasicTextNormalizer
 from functools import partial
 
+if len(sys.argv) != 2:
+    print("Usage: python fine_tune.py <model_version>")
+    sys.exit(1)
+
 
 _MODEL_NAME = "openai/whisper-large-v3"
 
 ds = load_dataset("./flat_dataset.py", trust_remote_code=True)
 
-print(ds)
-print(ds["train"].features)
-print(ds["train"][0])
-print(ds.column_names["train"])
-
 processor = WhisperProcessor.from_pretrained(_MODEL_NAME,
                                              language="ukrainian",
                                              task="transcribe")
-
-# FIXME: temp
-tokenizer = WhisperTokenizer.from_pretrained(_MODEL_NAME,
-                                             language="ukrainian",
-                                             task="transcribe")
-input_str = ds["train"][0]["transcript"]
-labels = tokenizer(input_str).input_ids
-decoded_with_special = tokenizer.decode(labels, skip_special_tokens=False)
-decoded_str = tokenizer.decode(labels, skip_special_tokens=True)
-print(f"Input:                 {input_str}")
-print(f"Decoded w/ special:    {decoded_with_special}")
-print(f"Decoded w/out special: {decoded_str}")
-print(f"Are equal:             {input_str == decoded_str}")
 
 # unnecessary
 #sampling_rate = processor.feature_extractor.sampling_rate
@@ -44,7 +31,7 @@ def prepare_dataset(example):
 
     example = processor(audio=audio["array"],
                         sampling_rate=audio["sampling_rate"],
-                        text=example["sentence"])
+                        text=example["transcript"])
 
     # compute input length of audio sample in seconds
     example["input_length"] = len(audio["array"]) / audio["sampling_rate"]
@@ -152,7 +139,7 @@ model.generate = partial(model.generate,
                          use_cache=True)
 
 training_args = Seq2SeqTrainingArguments(
-    output_dir=f"model_{_MODEL_NAME}_ua_v1",
+    output_dir=f"ua_model_{_MODEL_NAME}_v{sys.argv[1]}",
     per_device_train_batch_size=16,
     gradient_accumulation_steps=1,  # increase by 2x for every 2x decrease in batch size
     learning_rate=1e-5,
