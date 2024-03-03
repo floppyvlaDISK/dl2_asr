@@ -13,9 +13,6 @@ if len(sys.argv) != 2:
     print("Usage: python fine_tune.py <model_version>")
     sys.exit(1)
 
-# Set the fraction of GPU memory PyTorch can allocate
-#torch.cuda.set_per_process_memory_fraction(0.5)  # Limit to % of GPU memory
-
 _MODEL_NAME = "openai/whisper-small"
 _MODEL_TYPE = "small"
 _DS_PERCENTILE = "0_5p"
@@ -27,9 +24,6 @@ ds["train"] = load_dataset("./flat_dataset.py",
 ds["validation"] = load_dataset("./flat_dataset.py",
                                 trust_remote_code=True,
                                 split="validation[:5%]")
-ds["test"] = load_dataset("./flat_dataset.py",
-                          trust_remote_code=True,
-                          split="test[:5%]")
 
 processor = WhisperProcessor.from_pretrained(_MODEL_NAME,
                                              language="ukrainian",
@@ -52,7 +46,6 @@ ds = ds.map(prepare_dataset,
             load_from_cache_file=True,
             cache_file_names={
             "train": f"datasets/flat_map_caches/{_MODEL_TYPE}/{_DS_PERCENTILE}/train.arrow",
-            "test": f"datasets/flat_map_caches/{_MODEL_TYPE}/{_DS_PERCENTILE}/test.arrow",
             "validation": f"datasets/flat_map_caches/{_MODEL_TYPE}/{_DS_PERCENTILE}/dev.arrow"
             },
             num_proc=1)
@@ -70,11 +63,6 @@ ds["validation"] = ds["validation"].filter(is_audio_in_length_range,
                                            input_columns=["input_length"],
                                            load_from_cache_file=True,
                                            cache_file_name=f"datasets/flat_filter_caches/{_MODEL_TYPE}/{_DS_PERCENTILE}/dev.arrow")
-
-ds["test"] = ds["test"].filter(is_audio_in_length_range,
-                               input_columns=["input_length"],
-                               load_from_cache_file=True,
-                               cache_file_name=f"datasets/flat_filter_caches/{_MODEL_TYPE}/{_DS_PERCENTILE}/test.arrow")
 
 
 @dataclass
