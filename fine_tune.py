@@ -1,6 +1,7 @@
 import torch
 import evaluate
 import sys
+import os
 
 from datasets import load_dataset, DatasetDict
 from transformers import WhisperProcessor, WhisperForConditionalGeneration, Seq2SeqTrainingArguments, Seq2SeqTrainer
@@ -9,21 +10,21 @@ from typing import Any, Dict, List, Union
 from transformers.models.whisper.english_normalizer import BasicTextNormalizer
 from functools import partial
 
-if len(sys.argv) != 2:
-    print("Usage: python fine_tune.py <model_version>")
+if len(sys.argv) < 2 or len(sys.argv) > 3:
+    print("Usage: python fine_tune.py <model_version> <?models/model_name>")
     sys.exit(1)
 
-_MODEL_NAME = "openai/whisper-small"
 _MODEL_TYPE = "small"
-_DS_PERCENTILE = "0_5p"
+_MODEL_NAME = f"openai/whisper-{_MODEL_TYPE}"
+_DS_PERCENTILE = "0_1p"
 
 ds = DatasetDict()
 ds["train"] = load_dataset("./flat_dataset.py",
                            trust_remote_code=True,
-                           split="train[:5%]")
+                           split="train[:1%]")
 ds["validation"] = load_dataset("./flat_dataset.py",
                                 trust_remote_code=True,
-                                split="validation[:5%]")
+                                split="validation[:1%]")
 
 processor = WhisperProcessor.from_pretrained(_MODEL_NAME,
                                              language="ukrainian",
@@ -41,12 +42,16 @@ def prepare_dataset(example):
 
     return example
 
+caches_dir_map = f"datasets/flat_map_caches/{_MODEL_TYPE}/{_DS_PERCENTILE}"
+if os.path.isdir(caches_dir_map) is False:
+    os.makedirs(caches_dir_map)
+
 ds = ds.map(prepare_dataset,
             remove_columns=ds.column_names["train"],
             load_from_cache_file=True,
             cache_file_names={
-            "train": f"datasets/flat_map_caches/{_MODEL_TYPE}/{_DS_PERCENTILE}/train.arrow",
-            "validation": f"datasets/flat_map_caches/{_MODEL_TYPE}/{_DS_PERCENTILE}/dev.arrow"
+            "train": f"{caches_dir_map}/train.arrow",
+            "validation": f"{caches_dir_map}/dev.arrow"
             },
             num_proc=1)
 
@@ -54,15 +59,19 @@ ds = ds.map(prepare_dataset,
 def is_audio_in_length_range(length):
     return length < 30.0
 
+caches_dir_filter = f"datasets/flat_filter_caches/{_MODEL_TYPE}/{_DS_PERCENTILE}"
+if os.path.isdir(caches_dir_filter) is False:
+    os.makedirs(caches_dir_filter)
+
 ds["train"] = ds["train"].filter(is_audio_in_length_range,
                                  input_columns=["input_length"],
                                  load_from_cache_file=True,
-                                 cache_file_name=f"datasets/flat_filter_caches/{_MODEL_TYPE}/{_DS_PERCENTILE}/train.arrow")
+                                 cache_file_name=f"{caches_dir_filter}/train.arrow")
 
 ds["validation"] = ds["validation"].filter(is_audio_in_length_range,
                                            input_columns=["input_length"],
                                            load_from_cache_file=True,
-                                           cache_file_name=f"datasets/flat_filter_caches/{_MODEL_TYPE}/{_DS_PERCENTILE}/dev.arrow")
+                                           cache_file_name=f"{caches_dir_filter}/dev.arrow")
 
 
 @dataclass
@@ -137,7 +146,9 @@ def compute_metrics(pred):
 
     return {"wer_ortho": wer_ortho, "wer": wer}
 
-model = WhisperForConditionalGeneration.from_pretrained(_MODEL_NAME)
+model = WhisperForConditionalGeneration.from_pretrained(
+    _MODEL_NAME if len(sys.argv) < 3 else sys.argv[2]
+)
 
 # TODO: try removing these
 #model.config.forced_decoder_ids = None
@@ -159,18 +170,20 @@ training_args = Seq2SeqTrainingArguments(
     learning_rate=1e-5,
     lr_scheduler_type="constant_with_warmup",
     warmup_steps=50,
-    max_steps=500,
+    #max_steps=500,
+    num_train_epochs=3,
     gradient_checkpointing=True,
     fp16=True,
     fp16_full_eval=True,
-    evaluation_strategy="steps",
+    evaluation_strategy="epoch",
     per_device_eval_batch_size=16,
     predict_with_generate=True,
     generation_max_length=225,
-    save_steps=500,
-    eval_steps=500,
-    logging_steps=25,
-    report_to=["tensorboard"],
+    save_strategy="epoch",
+    #save_steps=100,
+    #eval_steps=100,
+    logging_strategy="no",
+    report_to="none",
     load_best_model_at_end=True,
     metric_for_best_model="wer",
     greater_is_better=False,
