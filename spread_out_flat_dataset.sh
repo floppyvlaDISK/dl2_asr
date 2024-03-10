@@ -42,8 +42,7 @@ for ((i = 0; i < chunks; i++)); do
 
         # copy transcript line correspoding to audio file
         audio_name=$(basename "$audio_full_path")
-        tsv_line=$(grep "^$audio_name" "$target_tsv" | head -n 1)
-        #tsv_line=$(grep "^$(printf '%s\n' "$audio_name" | sed 's/[[().*^$]/\\&/g')" "$target_tsv" | head -n 1)
+        tsv_line=$(grep "^$(printf '%s\n' "$audio_name" | sed 's/[[().*^$]/\\&/g')" "$target_tsv" | head -n 1)
         if [ -z "$tsv_line" ]; then
             echo "tsv_line missing for $audio_name"
         else

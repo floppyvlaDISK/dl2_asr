@@ -11,7 +11,7 @@ target_tsv="datasets/flat_dataset/$split.tsv"
 
 audios_to_fix=(
 )
-#last fixed - "AUDIOBOOKS_Василь_Шкляр_-_Ключ_[2007]_wav_spk_id_1816715_16142579965251.wav"
+#last fixed - "AUDIOBOOKS_Василь_Шкляр_-_Ключ_[2007]_wav_spk_id_1816715_16142579962243.wav"
 
 length=${#audios_to_fix[@]}
 for ((i = 0; i < length; i++)); do

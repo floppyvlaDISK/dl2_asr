@@ -16,15 +16,17 @@ if len(sys.argv) < 2 or len(sys.argv) > 3:
 
 _MODEL_TYPE = "small"
 _MODEL_NAME = f"openai/whisper-{_MODEL_TYPE}"
-_DS_PERCENTILE = "0_1p"
+_BATCH = "batch_1"
 
 ds = DatasetDict()
-ds["train"] = load_dataset("./flat_dataset.py",
+ds["train"] = load_dataset("./spread_flat_dataset.py",
+                           _BATCH,
                            trust_remote_code=True,
-                           split="train[:1%]")
-ds["validation"] = load_dataset("./flat_dataset.py",
+                           split="train")
+ds["validation"] = load_dataset("./spread_flat_dataset.py",
+                                _BATCH,
                                 trust_remote_code=True,
-                                split="validation[:1%]")
+                                split="validation")
 
 processor = WhisperProcessor.from_pretrained(_MODEL_NAME,
                                              language="ukrainian",
@@ -42,7 +44,7 @@ def prepare_dataset(example):
 
     return example
 
-caches_dir_map = f"datasets/flat_map_caches/{_MODEL_TYPE}/{_DS_PERCENTILE}"
+caches_dir_map = f"datasets/flat_map_caches/{_MODEL_TYPE}/{_BATCH}"
 if os.path.isdir(caches_dir_map) is False:
     os.makedirs(caches_dir_map)
 
@@ -59,7 +61,7 @@ ds = ds.map(prepare_dataset,
 def is_audio_in_length_range(length):
     return length < 30.0
 
-caches_dir_filter = f"datasets/flat_filter_caches/{_MODEL_TYPE}/{_DS_PERCENTILE}"
+caches_dir_filter = f"datasets/flat_filter_caches/{_MODEL_TYPE}/{_BATCH}"
 if os.path.isdir(caches_dir_filter) is False:
     os.makedirs(caches_dir_filter)
 
@@ -164,7 +166,7 @@ model.generate = partial(model.generate,
                          use_cache=True)
 
 training_args = Seq2SeqTrainingArguments(
-    output_dir=f"models/{_MODEL_TYPE}_{sys.argv[1]}",
+    output_dir=f"models/{_MODEL_TYPE}_{_BATCH}_{sys.argv[1]}",
     per_device_train_batch_size=16,
     gradient_accumulation_steps=1,  # increase by 2x for every 2x decrease in batch size
     learning_rate=1e-5,

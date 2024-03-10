@@ -12,15 +12,16 @@ if len(sys.argv) != 2:
     sys.exit(1)
 
 
-ds = load_dataset("./flat_dataset.py",
-                          trust_remote_code=True,
-                          split="test[:5%]")
+ds = load_dataset("./spread_flat_dataset.py",
+                  "batch_1",
+                  trust_remote_code=True,
+                  split="test")
 
-model_name = f"models/{sys.argv[1]}/checkpoint-500"
+model_name = f"models/{sys.argv[1]}/checkpoint-500" # FIXME: NEXT checkpoint-500?
 pipe = pipeline(task="automatic-speech-recognition", model=model_name, tokenizer=model_name)
 
 normalizer = BasicTextNormalizer()
-total_examples = 200 #len(ds)
+total_examples = len(ds)
 total_correct = 0
 
 for i in tqdm(range(total_examples)):
