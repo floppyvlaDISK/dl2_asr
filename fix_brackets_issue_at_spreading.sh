@@ -11,14 +11,15 @@ target_tsv="datasets/flat_dataset/$split.tsv"
 
 audios_to_fix=(
 )
-#last fixed - "AUDIOBOOKS_Василь_Шкляр_-_Ключ_[2007]_wav_spk_id_1816715_16142579962243.wav"
 
 length=${#audios_to_fix[@]}
 for ((i = 0; i < length; i++)); do
-    audio_name=$(printf '%s\n' "${audios_to_fix[$i]}" | sed 's/[[().*^$]/\\&/g')
+    audio_name="${audios_to_fix[$i]}"
+    audio_name=${audio_name/\[/\\[}
 
     audio_full_path=$(find "datasets/spread_flat_dataset" -name "$audio_name")
     chunk_tsv_file="$(dirname "$audio_full_path").tsv"
+    echo "chunk_tsv_file: $chunk_tsv_file"
 
     tsv_line=$(grep "^$audio_name" "$target_tsv" | head -n 1)
     if [ -z "$tsv_line" ]; then

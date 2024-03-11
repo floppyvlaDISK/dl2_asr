@@ -16,7 +16,7 @@ batch_size=$(echo "scale=0; ($batch_size + 0.5) / 1" | bc) # floor
 echo "batch size: $batch_size"
 echo "count: $count"
 
-for ((i = 0; i < 50; i++)); do
+for ((i = 50; i < 100; i++)); do
     echo "i: $i"
     start_item=$(echo "scale=2; $i * $batch_size" | bc)
     start_item=$(echo "scale=0; $start_item / 1" | bc)
