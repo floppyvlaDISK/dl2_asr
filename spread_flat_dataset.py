@@ -29,7 +29,7 @@ def _build_config(name):
         name=name,
         description=_DESCRIPTION,
         citation=_CITATION,
-        homepage=_HOMEPAGE_URL,
+        homepage=_HOMEPAGE,
     )
 
 
@@ -38,7 +38,7 @@ class SpreadFlatDataset(datasets.GeneratorBasedBuilder):
 
     def _info(self):
         return datasets.DatasetInfo(
-            description=self.config.description
+            description=self.config.description,
             features=datasets.Features(
                 {
                     "audio": datasets.Audio(sampling_rate=16_000),
