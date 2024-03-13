@@ -152,10 +152,6 @@ model = WhisperForConditionalGeneration.from_pretrained(
     _MODEL_NAME if len(sys.argv) < 3 else sys.argv[2]
 )
 
-# TODO: try removing these
-#model.config.forced_decoder_ids = None
-#model.config.suppress_tokens = []
-
 # disable cache during training since it's incompatible with gradient checkpointing
 model.config.use_cache = False
 
@@ -173,7 +169,7 @@ training_args = Seq2SeqTrainingArguments(
     lr_scheduler_type="constant_with_warmup",
     warmup_steps=50,
     #max_steps=500,
-    num_train_epochs=3,
+    num_train_epochs=5,
     gradient_checkpointing=True,
     fp16=True,
     fp16_full_eval=True,
