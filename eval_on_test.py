@@ -13,11 +13,11 @@ if len(sys.argv) != 2:
 
 
 ds = load_dataset("./spread_flat_dataset.py",
-                  "batch_1",
+                  "chunk_100",
                   trust_remote_code=True,
                   split="test")
 
-model_name = f"models/{sys.argv[1]}/checkpoint-500" # FIXME: NEXT checkpoint-500?
+model_name = sys.argv[1]
 pipe = pipeline(task="automatic-speech-recognition", model=model_name, tokenizer=model_name)
 
 normalizer = BasicTextNormalizer()
